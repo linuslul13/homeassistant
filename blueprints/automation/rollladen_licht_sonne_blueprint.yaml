@@ -1,0 +1,238 @@
+blueprint:
+  name: "Rollladen – Tageslicht & Sonnenschutz"
+  description: >
+    Steuert einen positionsfähigen Rollladen abhängig von Uhrzeit,
+    Außenhelligkeit (Lux), Sonnenhöhe und Sonnenazimut.
+    Tagsüber wird für Tageslicht geöffnet, bei direkter starker Sonne
+    beschattet und nach dem Tagesfenster die Nachtposition gefahren.
+    Ein optionaler Sperrschalter verhindert automatische Fahrten.
+    0 % = geschlossen, 100 % = vollständig offen.
+  domain: automation
+  input:
+    cover_entity:
+      name: Rollladen
+      selector:
+        entity:
+          filter:
+            domain: cover
+    brightness_sensor:
+      name: Helligkeitssensor im Freien
+      description: Sensor mit numerischem Lux-Wert (lx).
+      selector:
+        entity:
+          filter:
+            domain: sensor
+            device_class: illuminance
+    start_time:
+      name: Beginn der Tagessteuerung
+      default: "07:00:00"
+      selector:
+        time: {}
+    end_time:
+      name: Ende der Tagessteuerung / Nachtposition
+      default: "21:00:00"
+      selector:
+        time: {}
+    azimuth_from:
+      name: Sonne – Azimut ab
+      description: Für Westfenster meist ca. 230°.
+      default: 230
+      selector:
+        number:
+          min: 0
+          max: 360
+          step: 1
+          unit_of_measurement: "°"
+          mode: box
+    azimuth_to:
+      name: Sonne – Azimut bis
+      description: Für Westfenster meist ca. 320°; Bereich darf 0° überqueren.
+      default: 320
+      selector:
+        number:
+          min: 0
+          max: 360
+          step: 1
+          unit_of_measurement: "°"
+          mode: box
+    min_elevation:
+      name: Sonnenhöhe mindestens
+      default: 5
+      selector:
+        number:
+          min: -10
+          max: 90
+          step: 1
+          unit_of_measurement: "°"
+          mode: box
+    bright_above:
+      name: Beschattung ab Außenhelligkeit
+      description: Ab diesem Lux-Wert bei Sonne im Fensterbereich beschatten.
+      default: 12000
+      selector:
+        number:
+          min: 0
+          max: 120000
+          step: 500
+          unit_of_measurement: lx
+          mode: box
+    bright_below:
+      name: Beschattung aufheben unter
+      description: Muss kleiner als der Wert zum Starten der Beschattung sein (Hysterese).
+      default: 8000
+      selector:
+        number:
+          min: 0
+          max: 120000
+          step: 500
+          unit_of_measurement: lx
+          mode: box
+    shade_position:
+      name: Position bei direkter Sonne
+      default: 35
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    day_position:
+      name: Position tagsüber ohne Beschattung
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    night_position:
+      name: Position am Abend
+      default: 60
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    min_change:
+      name: Mindeständerung zum Fahren
+      description: Verhindert unnötige kleine Korrekturen.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          unit_of_measurement: "%"
+          mode: slider
+    lock_entity:
+      name: Automatik-Sperrschalter (optional)
+      description: >
+        Optional einen input_boolean wählen. Bei 'an' wird nichts gefahren;
+        nutzbar für manuelle Bedienung. Ein manueller Tastendruck wird nicht
+        automatisch erkannt.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+          multiple: false
+
+mode: restart
+max_exceeded: silent
+
+variables:
+  cover_id: !input cover_entity
+  lux_id: !input brightness_sensor
+  lock_id: !input lock_entity
+  start_clock: !input start_time
+  end_clock: !input end_time
+  az_from: !input azimuth_from
+  az_to: !input azimuth_to
+  elevation_min: !input min_elevation
+  lux_high: !input bright_above
+  lux_low: !input bright_below
+  shade_pos: !input shade_position
+  day_pos: !input day_position
+  night_pos: !input night_position
+  movement_threshold: !input min_change
+
+triggers:
+  - trigger: time_pattern
+    minutes: "/10"
+  - trigger: time
+    at: !input start_time
+  - trigger: time
+    at: !input end_time
+  - trigger: homeassistant
+    event: start
+  - trigger: state
+    entity_id: !input brightness_sensor
+
+conditions:
+  - condition: template
+    value_template: "{{ lock_id == '' or not is_state(lock_id, 'on') }}"
+  - condition: template
+    value_template: >-
+      {{ (lux_high | float(0)) > (lux_low | float(0)) }}
+  - condition: template
+    value_template: >-
+      {{ states(cover_id) not in ['unknown', 'unavailable'] }}
+
+actions:
+  - variables:
+      is_day_window: >-
+        {{ today_at(start_clock) <= now() < today_at(end_clock) }}
+      is_evening: >-
+        {{ now() >= today_at(end_clock) }}
+      valid_lux: >-
+        {{ is_number(states(lux_id)) }}
+      sun_in_window: >-
+        {% set az = state_attr('sun.sun', 'azimuth') | float(-1) %}
+        {% set elev = state_attr('sun.sun', 'elevation') | float(-99) %}
+        {% set a = az_from | float(0) %}
+        {% set b = az_to | float(360) %}
+        {{ elev >= (elevation_min | float(5)) and
+           ((a <= b and a <= az <= b) or
+            (a > b and (az >= a or az <= b))) }}
+      current_position: >-
+        {{ state_attr(cover_id, 'current_position') | float(-1) }}
+  - condition: template
+    value_template: >-
+      {{ is_evening | bool or ((is_day_window | bool) and (valid_lux | bool)) }}
+  - variables:
+      desired_position: >-
+        {% if is_evening | bool %}
+          {{ night_pos | int }}
+        {% elif sun_in_window | bool %}
+          {% set current = current_position | float(-1) %}
+          {% set lux = states(lux_id) | float(0) %}
+          {% if lux >= (lux_high | float) %}
+            {{ shade_pos | int }}
+          {% elif lux <= (lux_low | float) %}
+            {{ day_pos | int }}
+          {% elif current >= 0 and
+             (current - (shade_pos | float)) | abs <= (movement_threshold | float) %}
+            {{ shade_pos | int }}
+          {% elif current >= 0 and
+             (current - (day_pos | float)) | abs <= (movement_threshold | float) %}
+            {{ day_pos | int }}
+          {% else %}
+            {{ current | int }}
+          {% endif %}
+        {% else %}
+          {{ day_pos | int }}
+        {% endif %}
+  - condition: template
+    value_template: >-
+      {{ (current_position | float(-1)) >= 0 and
+         ((desired_position | float) - (current_position | float)) | abs >=
+         (movement_threshold | float(10)) }}
+  - action: cover.set_cover_position
+    target:
+      entity_id: !input cover_entity
+    data:
+      position: "{{ desired_position | int }}"
