@@ -1,0 +1,402 @@
+blueprint:
+  name: "Sanftes Aufwachen – Wecker, Rollladen & Licht"
+  description: >
+    Morgenroutine relativ zu einem input_datetime mit Datum und Uhrzeit der nächsten
+    Weckzeit (z.B. vom iPhone-Kurzbefehl). Rollladen öffnet stufenweise.
+    Bis zu drei Lichtgruppen simulieren einen Sonnenaufgang mit frei wählbaren
+    Start- und Endfarben, Helligkeiten und Vorlaufzeiten.
+    Licht wird nur bei Dunkelheit aktiviert (Luxsensor oder Sonnenhöhe).
+    Das Zeitfenster endet zur Weckzeit; jede Gruppe wird unabhängig gesteuert.
+    Achte darauf, dass die Weckzeit stets auf den nächsten Termin aktualisiert wird.
+  domain: automation
+  input:
+    alarm_datetime:
+      name: Nächster Wecker
+      description: input_datetime mit DATUM UND UHRZEIT – muss die nächste Weckzeit enthalten.
+      selector:
+        entity:
+          filter:
+            domain: input_datetime
+    cover_entity:
+      name: Rollladen
+      selector:
+        entity:
+          filter:
+            domain: cover
+    cover_lead:
+      name: Rollladen – Minuten vor dem Wecker beginnen
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 120
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    cover_from:
+      name: Rollladen – Startöffnung (%)
+      description: Ab dem Start wird der Rollladen auf diese Position geführt. 0 % = geschlossen.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    cover_to:
+      name: Rollladen – Zielöffnung (%)
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    min_cover_step:
+      name: Rollladen – Mindestschritt (%)
+      description: Verhindert unnötige Fahrbefehle, kleinere Schritte wirken aber sanfter.
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 25
+          step: 1
+          unit_of_measurement: "%"
+    outside_lux:
+      name: Außenhelligkeitssensor (optional)
+      description: Falls leer, wird nur die Sonnenhöhe verwendet.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: sensor
+            device_class: illuminance
+    darkness_limit:
+      name: Licht einschalten bei weniger als (Lux)
+      default: 3000
+      selector:
+        number:
+          min: 0
+          max: 30000
+          step: 100
+          unit_of_measurement: lx
+    sun_elevation_limit:
+      name: Ohne Lux-Sensor – Sonnenhöhe unter (Grad)
+      default: 2
+      selector:
+        number:
+          min: -18
+          max: 30
+          step: 1
+          unit_of_measurement: "°"
+    manual_pause:
+      name: Sperrschalter (optional)
+      description: Ein input_boolean, der bei EIN die komplette Morgenroutine pausiert.
+      default: ""
+      selector:
+        entity:
+          filter:
+            domain: input_boolean
+    lights_1:
+      name: Lichtgruppe 1 (optional; mehrere Lampen auswählbar)
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: light
+    lead_1:
+      name: Lichtgruppe 1 – Beginn vor Weckzeit (Minuten)
+      default: 30
+      selector:
+        number:
+          min: 1
+          max: 120
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    initial_brightness_1:
+      name: Lichtgruppe 1 – Starthelligkeit (%)
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    final_brightness_1:
+      name: Lichtgruppe 1 – Zielhelligkeit (%)
+      default: 70
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    initial_color_1:
+      name: Lichtgruppe 1 – Startfarbe
+      default: [255, 70, 12]
+      selector:
+        color_rgb: {}
+    final_color_1:
+      name: Lichtgruppe 1 – Endfarbe
+      default: [255, 210, 150]
+      selector:
+        color_rgb: {}
+    lights_2:
+      name: Lichtgruppe 2 (optional; mehrere Lampen auswählbar)
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: light
+    lead_2:
+      name: Lichtgruppe 2 – Beginn vor Weckzeit (Minuten)
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 120
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    initial_brightness_2:
+      name: Lichtgruppe 2 – Starthelligkeit (%)
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    final_brightness_2:
+      name: Lichtgruppe 2 – Zielhelligkeit (%)
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    initial_color_2:
+      name: Lichtgruppe 2 – Startfarbe
+      default: [255, 70, 12]
+      selector:
+        color_rgb: {}
+    final_color_2:
+      name: Lichtgruppe 2 – Endfarbe
+      default: [255, 210, 150]
+      selector:
+        color_rgb: {}
+    lights_3:
+      name: Lichtgruppe 3 (optional; mehrere Lampen auswählbar)
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: light
+    lead_3:
+      name: Lichtgruppe 3 – Beginn vor Weckzeit (Minuten)
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 120
+          step: 1
+          unit_of_measurement: min
+          mode: box
+    initial_brightness_3:
+      name: Lichtgruppe 3 – Starthelligkeit (%)
+      default: 1
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    final_brightness_3:
+      name: Lichtgruppe 3 – Zielhelligkeit (%)
+      default: 40
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    initial_color_3:
+      name: Lichtgruppe 3 – Startfarbe
+      default: [255, 70, 12]
+      selector:
+        color_rgb: {}
+    final_color_3:
+      name: Lichtgruppe 3 – Endfarbe
+      default: [255, 210, 150]
+      selector:
+        color_rgb: {}
+
+mode: restart
+max_exceeded: silent
+triggers:
+  - trigger: time_pattern
+    seconds: "/30"
+  - trigger: state
+    entity_id: !input alarm_datetime
+  - trigger: homeassistant
+    event: start
+
+variables:
+  alarm_entity: !input alarm_datetime
+  cover_id: !input cover_entity
+  cover_minutes: !input cover_lead
+  cover_start: !input cover_from
+  cover_end: !input cover_to
+  step_threshold: !input min_cover_step
+  lux_entity: !input outside_lux
+  lux_threshold: !input darkness_limit
+  elevation_threshold: !input sun_elevation_limit
+  pause_entity: !input manual_pause
+  group_1: !input lights_1
+  lead_1: !input lead_1
+  begin_brightness_1: !input initial_brightness_1
+  end_brightness_1: !input final_brightness_1
+  begin_color_1: !input initial_color_1
+  end_color_1: !input final_color_1
+  group_2: !input lights_2
+  lead_2: !input lead_2
+  begin_brightness_2: !input initial_brightness_2
+  end_brightness_2: !input final_brightness_2
+  begin_color_2: !input initial_color_2
+  end_color_2: !input final_color_2
+  group_3: !input lights_3
+  lead_3: !input lead_3
+  begin_brightness_3: !input initial_brightness_3
+  end_brightness_3: !input final_brightness_3
+  begin_color_3: !input initial_color_3
+  end_color_3: !input final_color_3
+
+conditions:
+  - condition: template
+    value_template: "{{ pause_entity == '' or not is_state(pause_entity, 'on') }}"
+  - condition: template
+    value_template: "{{ is_number(as_timestamp(states(alarm_entity), default=none)) }}"
+actions:
+  - variables:
+      seconds_left: "{{ as_timestamp(states(alarm_entity)) - as_timestamp(now()) }}"
+      longest_lead: "{{ [cover_minutes | float, lead_1 | float, lead_2 | float, lead_3 | float] | max }}"
+  - condition: template
+    value_template: >-
+      {{ (seconds_left | float) >= -30 and
+         (seconds_left | float) <= (longest_lead | float) * 60 }}
+  - variables:
+      is_dark: >-
+        {% if lux_entity != '' and is_number(states(lux_entity)) %}
+          {{ states(lux_entity) | float < lux_threshold | float }}
+        {% else %}
+          {{ state_attr('sun.sun', 'elevation') | float(90) < elevation_threshold | float }}
+        {% endif %}
+      cover_fraction: >-
+        {{ [[(cover_minutes | float * 60 - seconds_left | float) /
+          (cover_minutes | float * 60), 0] | max, 1] | min }}
+      target_cover: >-
+        {{ (cover_start | float +
+          (cover_end | float - cover_start | float) * cover_fraction | float) | round(0) | int }}
+      current_cover: "{{ state_attr(cover_id, 'current_position') | float(-1) }}"
+  - if:
+      - condition: template
+        value_template: >-
+          {{ (seconds_left | float) <= (cover_minutes | float * 60) and
+             current_cover | float >= 0 and
+             ((target_cover | int - current_cover | float) | abs >= step_threshold | float
+              or ((seconds_left | float) <= 30 and target_cover | int != current_cover | int)) }}
+    then:
+      - action: cover.set_cover_position
+        target:
+          entity_id: !input cover_entity
+        data:
+          position: "{{ target_cover | int }}"
+
+  - if:
+      - condition: template
+        value_template: >-
+          {{ group_1 | count > 0 and is_dark | bool and
+             (seconds_left | float) <= (lead_1 | float * 60) }}
+    then:
+      - variables:
+          progress_1: >-
+            {{ [[((lead_1 | float * 60) - (seconds_left | float)) /
+              (lead_1 | float * 60), 0] | max, 1] | min }}
+          level_1: >-
+            {{ (begin_brightness_1 | float +
+               (end_brightness_1 | float - begin_brightness_1 | float)
+               * progress_1 | float) | round(0) | int }}
+          rgb_1: >-
+            {{ [
+              (begin_color_1[0] + (end_color_1[0] - begin_color_1[0]) * progress_1 | float) | round(0) | int,
+              (begin_color_1[1] + (end_color_1[1] - begin_color_1[1]) * progress_1 | float) | round(0) | int,
+              (begin_color_1[2] + (end_color_1[2] - begin_color_1[2]) * progress_1 | float) | round(0) | int
+              ] }}
+      - action: light.turn_on
+        target:
+          entity_id: "{{ group_1 }}"
+        data:
+          brightness_pct: "{{ level_1 | int }}"
+          rgb_color: "{{ rgb_1 }}"
+          transition: 30
+
+  - if:
+      - condition: template
+        value_template: >-
+          {{ group_2 | count > 0 and is_dark | bool and
+             (seconds_left | float) <= (lead_2 | float * 60) }}
+    then:
+      - variables:
+          progress_2: >-
+            {{ [[((lead_2 | float * 60) - (seconds_left | float)) /
+              (lead_2 | float * 60), 0] | max, 1] | min }}
+          level_2: >-
+            {{ (begin_brightness_2 | float +
+               (end_brightness_2 | float - begin_brightness_2 | float)
+               * progress_2 | float) | round(0) | int }}
+          rgb_2: >-
+            {{ [
+              (begin_color_2[0] + (end_color_2[0] - begin_color_2[0]) * progress_2 | float) | round(0) | int,
+              (begin_color_2[1] + (end_color_2[1] - begin_color_2[1]) * progress_2 | float) | round(0) | int,
+              (begin_color_2[2] + (end_color_2[2] - begin_color_2[2]) * progress_2 | float) | round(0) | int
+              ] }}
+      - action: light.turn_on
+        target:
+          entity_id: "{{ group_2 }}"
+        data:
+          brightness_pct: "{{ level_2 | int }}"
+          rgb_color: "{{ rgb_2 }}"
+          transition: 30
+
+  - if:
+      - condition: template
+        value_template: >-
+          {{ group_3 | count > 0 and is_dark | bool and
+             (seconds_left | float) <= (lead_3 | float * 60) }}
+    then:
+      - variables:
+          progress_3: >-
+            {{ [[((lead_3 | float * 60) - (seconds_left | float)) /
+              (lead_3 | float * 60), 0] | max, 1] | min }}
+          level_3: >-
+            {{ (begin_brightness_3 | float +
+               (end_brightness_3 | float - begin_brightness_3 | float)
+               * progress_3 | float) | round(0) | int }}
+          rgb_3: >-
+            {{ [
+              (begin_color_3[0] + (end_color_3[0] - begin_color_3[0]) * progress_3 | float) | round(0) | int,
+              (begin_color_3[1] + (end_color_3[1] - begin_color_3[1]) * progress_3 | float) | round(0) | int,
+              (begin_color_3[2] + (end_color_3[2] - begin_color_3[2]) * progress_3 | float) | round(0) | int
+              ] }}
+      - action: light.turn_on
+        target:
+          entity_id: "{{ group_3 }}"
+        data:
+          brightness_pct: "{{ level_3 | int }}"
+          rgb_color: "{{ rgb_3 }}"
+          transition: 30
